@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum OperatorStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum OperationType {
+  DRILLING
+  INTERVENTION
+  ABANDONMENT
+  WORKOVER
+}
+
+enum OperationStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  SUSPENDED
+  CANCELLED
+}
+
+enum ContractType {
+  EXPLORATION
+  DEVELOPMENT
+  PRODUCTION
+  SERVICE
+}
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  TERMINATED
+}
+
+enum StockStatus {
+  NORMAL
+  ATTENTION
+  ALERT
+  CRITICAL
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum SubmissionType {
+  OPERATIONAL
+  MARKET
+  STOCK
+  MIXED
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  CORRECTION_REQUESTED
+  REJECTED
+}
+
+enum ValidationSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum ReportFormat {
+  WORD
+  EXCEL
+  POWERPOINT
+  PDF
+  CSV
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+  roleId       String
+  operatorId   String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  role        Role         @relation(fields: [roleId], references: [id])
+  operator    Operator?    @relation(fields: [operatorId], references: [id])
+  submissions Submission[] @relation("SubmittedBy")
+  reports     Report[]     @relation("GeneratedBy")
+  auditLogs   AuditLog[]   @relation("ActorLogs")
+}
+
+model Operator {
+  id        String         @id @default(cuid())
+  name      String
+  code      String         @unique
+  email     String?
+  phone     String?
+  status    OperatorStatus @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  users          User[]
+  blocks         Block[]
+  rigs           Rig[]
+  operations     Operation[]
+  contracts      Contract[]
+  stockItems     StockItem[]
+  stockMovements StockMovement[]
+  submissions    Submission[]
+}
+
+model Block {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String?
+  basin      String?
+  operatorId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  operator   Operator    @relation(fields: [operatorId], references: [id])
+  wells      Well[]
+  operations Operation[]
+  contracts  Contract[]
+}
+
+model Well {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String?
+  blockId   String
+  wellType  String?
+  status    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  block          Block           @relation(fields: [blockId], references: [id])
+  operations     Operation[]
+  stockMovements StockMovement[]
+}
+
+model Rig {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  operatorId String?
+  status     String?  @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  operator   Operator?   @relation(fields: [operatorId], references: [id])
+  operations Operation[]
+}
+
+model Operation {
+  id               String          @id @default(cuid())
+  operatorId       String
+  blockId          String
+  wellId           String
+  rigId            String?
+  type             OperationType
+  plannedStartDate DateTime?
+  actualStartDate  DateTime?
+  plannedEndDate   DateTime?
+  actualEndDate    DateTime?
+  plannedCostUsd   Decimal?        @db.Decimal(18, 2)
+  actualCostUsd    Decimal?        @db.Decimal(18, 2)
+  status           OperationStatus @default(PLANNED)
+  criticalIssue    String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+  block    Block    @relation(fields: [blockId], references: [id])
+  well     Well     @relation(fields: [wellId], references: [id])
+  rig      Rig?     @relation(fields: [rigId], references: [id])
+}
+
+model Contract {
+  id         String         @id @default(cuid())
+  operatorId String
+  blockId    String
+  type       ContractType
+  valueUsd   Decimal        @db.Decimal(18, 2)
+  status     ContractStatus @default(ACTIVE)
+  startDate  DateTime?
+  endDate    DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  operator Operator @relation(fields: [operatorId], references: [id])
+  block    Block    @relation(fields: [blockId], references: [id])
+}
+
+model StockItem {
+  id                String      @id @default(cuid())
+  operatorId        String
+  category          String
+  itemName          String
+  specification     String?
+  quantityAvailable Int         @default(0)
+  minimumQuantity   Int         @default(0)
+  unit              String      @default("unid.")
+  location          String?
+  status            StockStatus @default(NORMAL)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  operator  Operator        @relation(fields: [operatorId], references: [id])
+  movements StockMovement[]
+}
+
+model StockMovement {
+  id                String            @id @default(cuid())
+  stockItemId       String
+  operatorId        String
+  wellId            String?
+  type              StockMovementType
+  quantity          Int
+  originDestination String?
+  occurredAt        DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+
+  stockItem StockItem @relation(fields: [stockItemId], references: [id])
+  operator  Operator  @relation(fields: [operatorId], references: [id])
+  well      Well?     @relation(fields: [wellId], references: [id])
+}
+
+model Submission {
+  id                  String           @id @default(cuid())
+  reference           String           @unique
+  operatorId          String
+  submittedById       String
+  type                SubmissionType
+  status              SubmissionStatus @default(DRAFT)
+  periodStart         DateTime?
+  periodEnd           DateTime?
+  completenessPercent Int              @default(0)
+  inconsistencyCount  Int              @default(0)
+  notes               String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  operator          Operator           @relation(fields: [operatorId], references: [id])
+  submittedBy       User               @relation("SubmittedBy", fields: [submittedById], references: [id])
+  files             SubmissionFile[]
+  validationResults ValidationResult[]
+}
+
+model SubmissionFile {
+  id           String   @id @default(cuid())
+  submissionId String
+  originalName String
+  storedName   String
+  mimeType     String?
+  sizeBytes    Int?
+  path         String
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+}
+
+model ValidationResult {
+  id           String             @id @default(cuid())
+  submissionId String
+  field        String?
+  severity     ValidationSeverity @default(INFO)
+  message      String
+  status       String             @default("OPEN")
+  createdAt    DateTime           @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+}
+
+model Report {
+  id            String       @id @default(cuid())
+  title         String
+  type          String
+  format        ReportFormat
+  generatedById String
+  path          String?
+  createdAt     DateTime     @default(now())
+
+  generatedBy User @relation("GeneratedBy", fields: [generatedById], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  module     String
+  entityType String?
+  entityId   String?
+  ipAddress  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("ActorLogs", fields: [actorId], references: [id])
+
+  @@index([module])
+  @@index([action])
+  @@index([createdAt])
+}

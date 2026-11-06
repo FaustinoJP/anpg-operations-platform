@@ -1,0 +1,40 @@
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build - NestJS
+dist/
+**/dist/
+
+# Build - Next.js
+.next/
+**/.next/
+out/
+**/out/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Uploaded files
+uploads/*
+!uploads/.gitkeep
+
+# Prisma generated files
+.prisma/
+
+# Tests and coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel/
