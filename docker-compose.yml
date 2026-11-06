@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: anpg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: anpg_operations
+    ports:
+      - "5432:5432"
+    volumes:
+      - anpg_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  anpg_postgres_data:
